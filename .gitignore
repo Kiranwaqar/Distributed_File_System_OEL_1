@@ -1,0 +1,6 @@
+# Virtual Environment
+myenv/
+
+# Project specific
+*.dat
+fs_metadata.json 
