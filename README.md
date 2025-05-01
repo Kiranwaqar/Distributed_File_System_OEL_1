@@ -26,8 +26,10 @@ A modern file system implementation with a graphical user interface built using 
 
 2. Create a virtual environment (recommended):
 
-python -m venv myenv
-# On Windows: myenv\Scripts\activate
+   python -m venv myenv
+# On Windows: 
+   
+     myenv\Scripts\activate
 
 3. Install dependencies:
 
