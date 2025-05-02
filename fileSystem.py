@@ -1415,24 +1415,24 @@ class ModernFileSystemGUI:
             if not selected_dir:
                 self.show_message("Please select a target directory", is_error=True)
                 return
-            
+
             target_dir = selected_dir[0]
+
+            if item_type == "Directory":
+                self.show_message("Moving directories is not supported.", is_error=True)
+                return
+
             try:
-                # Get the directory name from the path
-                target_dir_name = target_dir.split('/')[-1] if target_dir != "/" else "/"
-                
-                # First change to the target directory to ensure it exists
-                if self.fs.chdir(target_dir_name):
-                    # Change back to current directory
-                    self.fs.chdir(self.current_path)
-                    # Now perform the move
-                    if self.fs.move(item_name, target_dir_name):
+                if target_dir in self.fs.fs_metadata['directories']:
+                    if self.fs.move(item_name, target_dir):
                         self.refresh_view()
                         self.show_message(f"{item_type} '{item_name}' moved to '{target_dir}'")
                         dialog.destroy()
+                else:
+                    self.show_message(f"Target directory '{target_dir}' not found.", is_error=True)
             except Exception as e:
                 self.show_message(str(e), is_error=True)
-        
+
         # Move button
         ctk.CTkButton(
             dialog,
