@@ -48,32 +48,33 @@ class FileObject:
             
             file_system.fs_metadata['directories'][dir_path]['files'].append(file_name)
             file_system.fs_metadata['files'][file_name] = self.file_meta
-            file_system._save_metadata()  # Implements requirement 7 (persistence)
+            file_system._save_metadata()  # Persistence data
     
-    # Implements requirement 6.a - append mode for writing
+    # Append mode for writing
     def write_to_file(self, text: str):
-        """Write to the file, replacing existing content"""
+        """Write to the end of the file, appending new content"""
         if self.mode != 'w':
             raise IOError("File not opened in write mode")
         
-        # Write data to file, replacing existing content
+        # Write data to file
         with open(self.file_system.data_file, 'r+b') as df:
-            # Move to the start position of the file
-            df.seek(self.file_meta['start_pos'])
+            # Move to the end of current content
+            df.seek(self.file_meta['start_pos'] + self.file_meta['size'])
+            
+            # Add a space before writing new content
+            df.write(b' ')
+            
             # Write the new content
             df.write(text.encode('utf-8'))
-            # If new content is shorter than old content, fill remaining space with null bytes
-            if len(text.encode('utf-8')) < self.file_meta['size']:
-                df.write(b'\0' * (self.file_meta['size'] - len(text.encode('utf-8'))))
         
-        # Update file metadata
-        self.file_meta['size'] = len(text.encode('utf-8'))
+        # Update file metadata (add 1 for the space)
+        self.file_meta['size'] += len(text.encode('utf-8')) + 1
         self.file_meta['modified_time'] = time.time()
         self.file_system.fs_metadata['files'][self.file_name]['size'] = self.file_meta['size']
         self.file_system.fs_metadata['files'][self.file_name]['modified_time'] = self.file_meta['modified_time']
-        self.file_system._save_metadata()  # Implements requirement 7 (persistence)
+        self.file_system._save_metadata()  # Persistence data
     
-    # Implements requirement 6.b - write at a specific position
+    # Write at a specific position
     def write_to_file_at(self, write_at: int, text: str):
         """Write to a specific position in the file"""
         if self.mode != 'w':
@@ -99,9 +100,9 @@ class FileObject:
         # Update metadata
         self.file_meta['modified_time'] = time.time()
         self.file_system.fs_metadata['files'][self.file_name]['modified_time'] = self.file_meta['modified_time']
-        self.file_system._save_metadata()  # Implements requirement 7 (persistence)
+        self.file_system._save_metadata()  # Persistence data
     
-    # Implements requirement 8.a - sequential access for reading
+    # Sequential access for reading
     def read_from_file(self) -> str:
         """Read entire file content"""
         if self.file_meta['size'] == 0:
@@ -112,7 +113,7 @@ class FileObject:
             content = df.read(self.file_meta['size'])
             return content.decode('utf-8')
     
-    # Implements requirement 8.b - read from specific position
+    # Read from specific position
     def read_from_file_at(self, start: int, size: int) -> str:
         """Read part of file from start position for size bytes"""
         if start < 0 or size < 0:
@@ -130,7 +131,7 @@ class FileObject:
             content = df.read(size)
             return content.decode('utf-8')
         
-    # Implements requirement 10 - Move content within a file
+    # Move content within a file
     def move_within_file(self, start: int, size: int, target: int):
         """Move content within the file from start position for size bytes to target position"""
         if self.mode != 'w':
@@ -167,9 +168,9 @@ class FileObject:
         # Update metadata
         self.file_meta['modified_time'] = time.time()
         self.file_system.fs_metadata['files'][self.file_name]['modified_time'] = self.file_meta['modified_time']
-        self.file_system._save_metadata()  # Implements requirement 7 (persistence)
+        self.file_system._save_metadata()  # Persistence data
 
-    # Implements requirement 11 - Truncate file to specified size
+    # Truncate file to specified size
     def truncate_file(self, max_size: int):
         """Truncate file to specified maximum size"""
         if self.mode != 'w':
@@ -189,7 +190,7 @@ class FileObject:
         # Update metadata
         self.file_meta['modified_time'] = time.time()
         self.file_system.fs_metadata['files'][self.file_name]['modified_time'] = self.file_meta['modified_time']
-        self.file_system._save_metadata()  # Implements requirement 7 (persistence)
+        self.file_system._save_metadata()  # Persistence data
 
 
 class FileSystem:
@@ -205,7 +206,7 @@ class FileSystem:
         self.open_files = {}  # Track open files
         self.current_path = "/"  # Start at root
         
-        # Initialize the file system (implements requirement 7)
+        # Initialize the file system 
         self._initialize()
     
     def _initialize(self):
@@ -242,7 +243,7 @@ class FileSystem:
                 # Initialize with zeros
                 f.write(b'\0' * self.max_size)
     
-    # Implements requirement 7 (persistence)
+    # Persistence data
     def _save_metadata(self):
         """Save file system metadata to persist between runs"""
         # Create a copy of metadata with free_space as lists
@@ -309,7 +310,7 @@ class FileSystem:
             else:
                 i += 1
     
-    # Implements requirement 2 - directory structure
+    # Directory structure
     def get_current_directory_meta(self):
         """Get metadata for current directory"""
         return self.fs_metadata['directories'][self.current_path]
@@ -344,12 +345,12 @@ class FileSystem:
         # Add file to file system metadata
         self.fs_metadata['files'][file_name] = file_meta
         
-        # Save changes to persist data (implements requirement 7)
+        # Save changes to persist data 
         self._save_metadata()
         
         return True
     
-    # Implements requirement 1.II - Delete file
+    # Delete file
     def delete(self, file_name: str) -> bool:
         """Delete a file"""
         # Check if file exists
@@ -379,7 +380,7 @@ class FileSystem:
         
         return True
     
-    # Implements requirement 1.III - Create directory
+    # Create directory
     def mkdir(self, dir_name: str) -> bool:
         """Create a new directory"""
         # Format path
@@ -408,12 +409,12 @@ class FileSystem:
         if dir_name not in parent_dir['subdirectories']:
             parent_dir['subdirectories'].append(dir_name)
         
-        # Save changes to persist data (implements requirement 7)
+        # Save changes to persist data 
         self._save_metadata()
         
         return True
     
-    # Implements requirement 1.IV - Change directory
+    # Change directory
     def chdir(self, dir_name: str) -> bool:
         """Change current directory"""
         # Handle special cases
@@ -454,7 +455,7 @@ class FileSystem:
         self.current_path = target_path
         return True
     
-    # Implements requirement 1.V - Move file
+    # Move file
     def move(self, source_fname: str, target_dir: str) -> bool:
         """Move a file to a specified directory. Create the directory if it does not exist."""
         # Check if source file exists
@@ -512,7 +513,7 @@ class FileSystem:
 
         return True
     
-    # Implements requirement 1.VI - Open file
+    # Open file
     def open(self, file_name: str, mode: str) -> FileObject:
         """Open a file and return a file object"""
         # Check if mode is valid
@@ -527,7 +528,7 @@ class FileSystem:
         
         return file_obj
     
-    # Implements requirement 1.VII - Close file
+    # Close file
     def close(self, file_name: str) -> bool:
         """Close an open file"""
         if file_name not in self.open_files:
@@ -536,12 +537,12 @@ class FileSystem:
         # Remove from open files
         del self.open_files[file_name]
         
-        # Save changes to persist data (implements requirement 7)
+        # Save changes to persist data 
         self._save_metadata()
         
         return True
     
-    # Implements requirement 1.XII - Show memory map
+    # Show memory map
     def show_memory_map(self):
         """Display memory usage of the file system"""
         print("\n=== MEMORY MAP ===")
@@ -1059,7 +1060,7 @@ class ModernFileSystemGUI:
             button_frame = ctk.CTkFrame(editor_window)
             button_frame.pack(fill=tk.X, padx=10, pady=5)
             
-            # Save button (not shown in view mode)
+            # Save button 
             if mode != 'view':
                 def save_file():
                     try:
@@ -1068,7 +1069,7 @@ class ModernFileSystemGUI:
                         
                         if mode == 'append':
                             # Append to end of file
-                            file_obj.write_to_file(content + "\n" + new_content)
+                            file_obj.write_to_file(new_content)
                             self.show_message(f"Content appended to '{filename}'")
                         else:
                             # Write at specific position
