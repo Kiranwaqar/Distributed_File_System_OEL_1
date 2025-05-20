@@ -55,24 +55,39 @@ class FileObject:
         """Write to the end of the file, appending new content"""
         if self.mode != 'w':
             raise IOError("File not opened in write mode")
-        
-        # Write data to file
-        with open(self.file_system.data_file, 'r+b') as df:
-            # Move to the end of current content
-            df.seek(self.file_meta['start_pos'] + self.file_meta['size'])
-            
-            # Add a space before writing new content
-            df.write(b' ')
-            
-            # Write the new content
-            df.write(text.encode('utf-8'))
-        
-        # Update file metadata (add 1 for the space)
-        self.file_meta['size'] += len(text.encode('utf-8')) + 1
+
+        text_bytes = text.encode('utf-8')
+        new_size = self.file_meta['size'] + len(text_bytes)
+
+        # If file is empty, allocate space
+        if self.file_meta['size'] == 0:
+            start_pos = self.file_system._allocate_space(len(text_bytes))
+            self.file_meta['start_pos'] = start_pos
+            with open(self.file_system.data_file, 'r+b') as df:
+                df.seek(start_pos)
+                df.write(text_bytes)
+        else:
+            # Check if there is enough space after current file
+            start_pos = self.file_meta['start_pos']
+            end_pos = start_pos + self.file_meta['size']
+            next_block_start = end_pos
+            # Check if next block is free (optional: implement for contiguous allocation)
+            # For simplicity, always allocate new block and move data
+            new_start_pos = self.file_system._allocate_space(new_size)
+            # Move old data
+            with open(self.file_system.data_file, 'r+b') as df:
+                df.seek(start_pos)
+                old_data = df.read(self.file_meta['size'])
+                df.seek(new_start_pos)
+                df.write(old_data + text_bytes)
+            # Release old space
+            self.file_system._release_space(start_pos, self.file_meta['size'])
+            self.file_meta['start_pos'] = new_start_pos
+
+        self.file_meta['size'] = new_size
         self.file_meta['modified_time'] = time.time()
-        self.file_system.fs_metadata['files'][self.file_name]['size'] = self.file_meta['size']
-        self.file_system.fs_metadata['files'][self.file_name]['modified_time'] = self.file_meta['modified_time']
-        self.file_system._save_metadata()  # Persistence data
+        self.file_system.fs_metadata['files'][self.file_name] = self.file_meta
+        self.file_system._save_metadata()
     
     # Write at a specific position
     def write_to_file_at(self, write_at: int, text: str):
@@ -677,6 +692,17 @@ class ModernFileSystemGUI:
             font=ctk.CTkFont(size=14)
         )
         memory_map_btn.pack(side=tk.LEFT, padx=5)
+
+        # Refresh Button
+        refresh_btn = ctk.CTkButton(
+            toolbar,
+            text="🔄 Refresh",
+            command=self.refresh_application,
+            width=120,
+            height=35,
+            font=ctk.CTkFont(size=14)
+        )
+        refresh_btn.pack(side=tk.LEFT, padx=5)
 
     def setup_file_view(self):
         """Setup file/directory view"""
@@ -1717,6 +1743,18 @@ class ModernFileSystemGUI:
             width=200,
             height=35
         ).pack(pady=10)
+
+    def refresh_application(self):
+        """Refresh the application like a browser refresh"""
+        try:
+            # Destroy the current window
+            self.root.destroy()
+            # Create a new instance of the application
+            new_app = ModernFileSystemGUI()
+            new_app.run()
+        except Exception as e:
+            from tkinter import messagebox
+            messagebox.showerror("Error", f"Failed to refresh application: {str(e)}")
 
     def run(self):
         self.root.mainloop()
